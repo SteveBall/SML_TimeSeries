@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<trs:TramoSeatsSpecification xmlns="ec/tss.core" xmlns:bench="ec/eurostat/jdemetra/benchmarking" xmlns:trs="ec/eurostat/jdemetra/sa/tramoseats" xmlns:tss="ec/eurostat/jdemetra/core" xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:modelling="ec/eurostat/jdemetra/modelling" xmlns:sa="ec/eurostat/jdemetra/sa">
+    <trs:Preprocessing>
+        <trs:Transformation>
+            <trs:Auto/>
+        </trs:Transformation>
+        <trs:Calendar>
+            <trs:TradingDays>
+                <trs:Automatic>
+                    <trs:FTest ftest="0.01"/>
+                </trs:Automatic>
+            </trs:TradingDays>
+            <trs:Easter>
+                <trs:Test>true</trs:Test>
+            </trs:Easter>
+        </trs:Calendar>
+        <trs:Outliers>
+            <trs:Types>AO TC LS</trs:Types>
+        </trs:Outliers>
+        <trs:AutoModelling/>
+    </trs:Preprocessing>
+    <trs:Decomposition/>
+</trs:TramoSeatsSpecification>

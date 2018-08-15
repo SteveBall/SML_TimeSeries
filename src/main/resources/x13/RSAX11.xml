@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<x13:X13Specification xmlns="ec/tss.core" xmlns:bench="ec/eurostat/jdemetra/benchmarking" xmlns:tss="ec/eurostat/jdemetra/core" xmlns:x13="ec/eurostat/jdemetra/sa/x13" xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:modelling="ec/eurostat/jdemetra/modelling" xmlns:sa="ec/eurostat/jdemetra/sa">
+    <x13:Decomposition>
+        <x13:Mode>Multiplicative</x13:Mode>
+        <x13:Forecasts>0</x13:Forecasts>
+    </x13:Decomposition>
+</x13:X13Specification>

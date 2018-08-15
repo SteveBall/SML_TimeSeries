@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<x13:X13Specification xmlns="ec/tss.core" xmlns:bench="ec/eurostat/jdemetra/benchmarking" xmlns:tss="ec/eurostat/jdemetra/core" xmlns:x13="ec/eurostat/jdemetra/sa/x13" xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:modelling="ec/eurostat/jdemetra/modelling" xmlns:sa="ec/eurostat/jdemetra/sa">
+    <x13:Preprocessing>
+        <x13:Transformation>
+            <x13:Auto/>
+        </x13:Transformation>
+        <x13:Calendar>
+            <x13:TradingDays>
+                <x13:Default>
+                    <modelling:TdOption>WorkingDays</modelling:TdOption>
+                    <modelling:LpOption>LeapYear</modelling:LpOption>
+                    <x13:AutoAdjust>true</x13:AutoAdjust>
+                </x13:Default>
+                <x13:Test>Remove</x13:Test>
+            </x13:TradingDays>
+            <x13:Easter>
+                <x13:Test>Add</x13:Test>
+            </x13:Easter>
+        </x13:Calendar>
+        <x13:Outliers>
+            <x13:Types>AO TC LS</x13:Types>
+        </x13:Outliers>
+        <x13:AutoModelling>
+            <x13:LjungBoxLimit>0.95</x13:LjungBoxLimit>
+        </x13:AutoModelling>
+    </x13:Preprocessing>
+    <x13:Decomposition>
+        <x13:Mode>Undefined</x13:Mode>
+    </x13:Decomposition>
+</x13:X13Specification>
