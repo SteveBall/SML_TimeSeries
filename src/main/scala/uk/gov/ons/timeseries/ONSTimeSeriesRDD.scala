@@ -2,11 +2,11 @@ package uk.gov.ons.timeseries
 
 import java.io.{BufferedReader, InputStreamReader}
 import java.sql.Timestamp
-import java.time.ZonedDateTime
+import java.time.{Instant, ZonedDateTime}
 import java.util.Arrays
 
 import com.cloudera.sparkts.{DateTimeIndex, TimeSeriesRDD}
-import uk.gov.ons.JDemetra.processors.{RegArima, TramoSeats, X13, convertToIndexArgs}
+import uk.gov.ons.JDemetra.processors._
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FileSystem, Path}
 import org.apache.spark.{HashPartitioner, Partitioner, SparkContext}
@@ -24,6 +24,9 @@ class ONSTimeSeriesRDD[K] (override val index: DateTimeIndex, parent: RDD[(K, Ve
 
   indexArgs = convertToIndexArgs(index)
 
+  override def getSparkContext: SparkContext = this.sparkContext
+
+
   /*
    * kt._1  is the key of the timeseries
    * kt._2  is the series observations
@@ -33,63 +36,98 @@ class ONSTimeSeriesRDD[K] (override val index: DateTimeIndex, parent: RDD[(K, Ve
     new ONSTimeSeriesRDD[K](dti, map(kt => (kt._1, f(kt._2))))
   }
 
+
+  /*
+   * RegArima functions
+   */
+
+  /*
+   * Apply a RegArima forecast to the series
+   * Setting the fullFcast flag to true will result in the return of a series made up of the original and the forecast vales
+   * whereas the value false will result in only the forecast series being returned
+   */
+  private def fcastRegArima(spec : String = RA_DefaultSpec, nF : Int = DEF_FORECAST, fullFcast : Boolean = true) : ONSTimeSeriesRDD[K] = {
+
+    if (nF <= 0) throw new Exception("Number of forecast periods must be > 0")
+
+    setRegArimaProcessingArgs(spec = Some(spec), numFcasts = Some(nF), fullForecast = Some(fullFcast))
+
+    val dtIndex = if (fullFcast) DateTimeIndexUtils.forecastFull(index, nF) else DateTimeIndexUtils.forecast(index, nF)
+
+    mapSeries(forecastRegArima, dtIndex)
+  }
+
+  def forecastRegArima(spec : String = RA_DefaultSpec, nF : Int = DEF_FORECAST) : ONSTimeSeriesRDD[K] = {
+
+    fcastRegArima(spec, nF, true)
+  }
+
+  def forecastRegArimaLite(spec : String = RA_DefaultSpec, nF : Int = DEF_FORECAST) : ONSTimeSeriesRDD[K] = {
+
+    fcastRegArima(spec, nF, false)
+  }
+
+
+
+
+
+  /*
+   * Tramo Seats functions
+   */
+
+
   /*
    * Apply a Tramo Seats forecast to the series
    */
-  def forecastTramoSeats(predLength : Int, fCastIn : Int, outliersCriticalVal : Double) : ONSTimeSeriesRDD[K] = {
+  def forecastTramoSeats(spec : String = TS_DefaultSpec, predLen : Int, oCV : Option[Double] = None, bF : Option[Boolean] = None) : ONSTimeSeriesRDD[K] = {
 
-    setTSProcessingArgs(predLength, fCastIn, outliersCriticalVal)
+    setTSProcessingArgs(spec = Option(spec), predLength = Option(predLen), outliersCriticalVal = oCV, benchFlag = bF)
 
-    mapSeries(forecastTS, DateTimeIndexUtils.forecast(index, forecastAdj * 12 ))  // sort this out    * 12 ???
+    mapSeries(forecastTS, DateTimeIndexUtils.forecast(index, predLen))
   }
 
-  /*
-   * Apply a RegArima forecast to the series
-   * This function will only return the forecasted elements
-   */
-  def forecastRegArima(nf : Int) : ONSTimeSeriesRDD[K] = {
+  private def applyOutlierDetection : RDD[(K, String)] = {
 
-    setRegArimaProcessingArgs(nf, false)
-
-    mapSeries(forecastRegArima, DateTimeIndexUtils.forecast(index, forecastAdj))
+    this.mapValues(getOutliers)
   }
 
-  /*
-   * Apply a RegArima forecast to the series
-   * This function will return both the original and forecasted series combined
-   */
-  def forecastRegArimaFull(nf : Int) : ONSTimeSeriesRDD[K] = {
 
-    setRegArimaProcessingArgs(nf, true)
+  def detectOutliers(spec : String = DEF_TR4) : RDD[(K, String)] = {
 
-    mapSeries(forecastRegArima, DateTimeIndexUtils.forecastFull(index, forecastAdj))
-  }
-
-  def seasAdj : ONSTimeSeriesRDD[K] = {
-
-    mapSeries(seasAdj, index)
-  }
-
-  def trend : ONSTimeSeriesRDD[K] = {
-
-    mapSeries(trend, index)
-  }
-
-  def applyOutlierDetection : RDD[(K, String)] = {
-
-    this.mapValues(outliers)
-  }
-
-  def detectOutliers : RDD[(K, String)] = {
+    setTSProcessingArgs(spec = Option(spec))
 
     applyOutlierDetection.map(o => (o._1, o._2.split(OutlierDelim)))
       .flatMapValues(x => x)
   }
 
 
+
+
+  /*
+   * X13 functions
+   */
+
+  def seasAdjust(spec : String = X13_DefaultSpec) : ONSTimeSeriesRDD[K] = {
+
+    setX13ProcessingArgs(spec = Some(spec))
+
+    mapSeries(seasAdj, index)
+  }
+
+  def trend(spec : String = X13_DefaultSpec) : ONSTimeSeriesRDD[K] = {
+
+    setX13ProcessingArgs(spec = Some(spec))
+
+    mapSeries(trend, index)
+  }
+
+
 }
 
 object ONSTimeSeriesRDD {
+
+  val SPEC_FILE_LOCATION = "spec.file.location"
+
 
   /**
     * Loads an ONSTimeSeriesRDD from a directory containing a set of CSV files and a date-time index.
@@ -129,6 +167,7 @@ object ONSTimeSeriesRDD {
     val rdd = df.select(tsCol, keyCol, valueCol).rdd.map { row =>
       ((row.getString(1), row.getAs[Timestamp](0)), row.getDouble(2))
     }
+
     implicit val ordering = new Ordering[(String, Timestamp)] {
       override def compare(a: (String, Timestamp), b: (String, Timestamp)): Int = {
         val strCompare = a._1.compareTo(b._1)
@@ -143,8 +182,10 @@ object ONSTimeSeriesRDD {
         hashPartitioner.getPartition(key.asInstanceOf[(Any, Any)]._1)
     })
 
+   // def mapPartitions[U](f : scala.Function1[scala.Iterator[T], scala.Iterator[U]], preservesPartitioning : scala.Boolean = { /* compiled code */ })(implicit evidence$6 : scala.reflect.ClassTag[U]) : org.apache.spark.rdd.RDD[U] = { /* compiled code */ }
     new ONSTimeSeriesRDD[String](targetIndex, shuffled.mapPartitions { iter =>
       val bufferedIter = iter.buffered
+
       new Iterator[(String, DenseVector)]() {
         override def hasNext: Boolean = bufferedIter.hasNext
 
@@ -154,6 +195,8 @@ object ONSTimeSeriesRDD {
           val series = new Array[Double](targetIndex.size)
           Arrays.fill(series, Double.NaN)
           val first = bufferedIter.next()
+
+         // ((String, Timestamp), Double)
           val firstLoc = targetIndex.locAtDateTime(
             ZonedDateTime.ofInstant(first._1._2.toInstant, targetIndex.zone))
           if (firstLoc >= 0) {

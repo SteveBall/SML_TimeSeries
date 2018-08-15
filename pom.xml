@@ -46,6 +46,13 @@
       <systemPath>${local.repo}eu/europa/ec/joinup/sat/demetra-tstoolkit/2.2.2-SNAPSHOT/demetra-tstoolkit-2.2.2-SNAPSHOT.jar</systemPath>
     </dependency>
 
+    <dependency>
+      <groupId>eu.europa</groupId>
+      <artifactId>demetra-tss</artifactId>
+      <version>2.2.1</version>
+      <scope>system</scope>
+      <systemPath>${local.repo}eu/europa/ec/joinup/sat/demetra-tss/2.2.1/demetra-tss-2.2.1.jar</systemPath>
+    </dependency>
 
 
     <dependency>
